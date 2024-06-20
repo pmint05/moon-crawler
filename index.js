@@ -12,6 +12,27 @@ const LESSON_IN_GROUP_API =
 const CONFIRMVIDEO_API =
 	"https://courseapi.moon.vn/api/course/VideoLessonTikTok/";
 
+const Resolution = {
+	stream_0: "1080",
+	stream_1: "720",
+	stream_2: "480",
+};
+let stream_num = "";
+const { resolution } = config;
+switch (resolution) {
+	case "480":
+		stream_num = "stream_2";
+		break;
+	case "720":
+		stream_num = "stream_1";
+		break;
+	case "1080":
+		stream_num = "stream_0";
+		break;
+	default:
+		stream_num = "stream_0";
+}
+
 let donwloadedVideo = 0;
 const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 	const outputPath = path.join(lessonPath, `${videoName}.mp4`);
@@ -25,10 +46,10 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 		port: 443,
 	});
 	const arrayOfSegments = [];
-	await axios
+	return await axios
 		.get(playlistUrl, { httpsAgent })
 		.then(async (response) => {
-			console.log("Downloading video: ", videoName);
+			console.log(`Downloading video '${videoName}.pm4' ...`);
 			response.data.split(/\r?\n/).forEach((line) => {
 				if (line.startsWith("#") || line.trim() === "") {
 					return;
@@ -78,13 +99,13 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 			}
 			process.stdout.write("\n");
 			output.end();
-			console.log("Download video ", videoName, " successfully!");
+			console.log(`Download video '${videoName}.mp4' successfully!`);
 			donwloadedVideo++;
 			console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 			return true;
 		})
 		.catch((error) => {
-			console.error("Error downloading segments:", error);
+			// console.error("Error downloading segments:", error);
 			return false;
 		});
 };
@@ -136,21 +157,6 @@ const donwloadVideoInLesson = async (
 	token,
 	lessonPath
 ) => {
-	let stream_num = "";
-	const { resolution } = config;
-	switch (resolution) {
-		case "480":
-			stream_num = "stream_2";
-			break;
-		case "720":
-			stream_num = "stream_1";
-			break;
-		case "1080":
-			stream_num = "stream_0";
-			break;
-		default:
-			stream_num = "stream_0";
-	}
 	switch (moduleName) {
 		case "ConfirmVideo":
 			const playlistUrl = `${CONFIRMVIDEO_API}${lessonId}`;
@@ -162,10 +168,39 @@ const donwloadVideoInLesson = async (
 			const playlist = response.data;
 			for (video of playlist) {
 				const { fileName, urlVideo } = video;
-				const playlistUrl =
+				let playlistUrl =
 					urlVideo.split("/").slice(0, -1).join("/") +
 					`/${stream_num}/playlist.m3u8`;
-				await downloadVideo(fileName, lessonPath, playlistUrl);
+				const isSuccessCV = await downloadVideo(
+					fileName,
+					lessonPath,
+					playlistUrl
+				);
+				if (!isSuccessCV) {
+					console.log(
+						`Failed to download video ${fileName} in ${Resolution[stream_num]}`
+					);
+					for (let i = 0; i < 3; i++) {
+						console.log(
+							`Retry download video ${fileName} in ${
+								Resolution[`stream_${i}`]
+							}`
+						);
+						if (Number(stream_num.split("_")[1]) === i) continue;
+						playlistUrl = playlistUrl.replace(
+							stream_num,
+							`stream_${i}`
+						);
+						const isSuccessCV = await downloadVideo(
+							fileName,
+							lessonPath,
+							playlistUrl
+						);
+						if (isSuccessCV) {
+							break;
+						}
+					}
+				}
 			}
 			return true;
 		case "Confirm":
@@ -185,13 +220,38 @@ const donwloadVideoInLesson = async (
 						},
 					}
 				);
-				const videoUrl =
+				let videoUrl =
 					detail.data.listTikTokVideoModel[0].urlVideo
 						.split("/")
 						.slice(0, -1)
 						.join("/") + `/${stream_num}/playlist.m3u8`;
-				await downloadVideo(order, lessonPath, videoUrl);
-				return true;
+				const isSuccessC = await downloadVideo(
+					order,
+					lessonPath,
+					videoUrl
+				);
+				if (!isSuccessC) {
+					console.log(
+						`Failed to download video '${order}.mp4' in ${Resolution[stream_num]}`
+					);
+					for (let i = 0; i < 3; i++) {
+						console.log(
+							`Retry download video '${order}.mp4' in ${
+								Resolution[`stream_${i}`]
+							}`
+						);
+						if (Number(stream_num.split("_")[1]) === i) continue;
+						videoUrl = videoUrl.replace(stream_num, `stream_${i}`);
+						const isSuccessC = await downloadVideo(
+							order,
+							lessonPath,
+							videoUrl
+						);
+						if (isSuccessC) {
+							break;
+						}
+					}
+				}
 			}
 			return true;
 		default:
@@ -199,7 +259,6 @@ const donwloadVideoInLesson = async (
 	}
 };
 const main = async () => {
-	console.log("Calculating total video in course...");
 	const { courseToDownload: courseUrl } = config;
 	const courseDetail = await getCourseDetail(courseUrl);
 	// console.log("Course detail: ", courseDetail);
@@ -222,13 +281,14 @@ const main = async () => {
 		genFolderName(courseName)
 	);
 	const token = await login();
+	console.log("Calculating total video in course...");
 	const totalVideo = await countVideoInCourse(courseDetail, token);
 	console.log("Total video in course: ", totalVideo);
 	console.log("Downloading course...");
 	for (let i = 0; i < groupList.length; i++) {
 		const group = groupList[i];
 		const { id, name } = group;
-		console.log("Downloading group: ", name);
+		console.log("Downloading chapter: ", name);
 		if (!fs.existsSync(path.join(coursePath, genFolderName(name)))) {
 			fs.mkdirSync(path.join(coursePath, genFolderName(name)));
 		}
@@ -269,8 +329,11 @@ const main = async () => {
 			);
 			if (isLessonDownloaded) {
 				console.log("Downloaded lesson: ", lessonName);
+				console.log("\n");
 			}
 		}
+		console.log("Downloaded chapter: ", name);
+		console.log("\n");
 	}
 	console.log("Download completed!");
 };
