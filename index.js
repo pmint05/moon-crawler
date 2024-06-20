@@ -90,9 +90,18 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 };
 const getCourseDetail = async (courseUrl) => {
 	const courseId = courseUrl.split("/").pop();
+	if (!courseId) {
+		console.error("Invalid course url");
+		process.exit(1);
+	}
 	const courseDetailUrl = `${COURSE_DETAIL_API}${courseId}`;
-	const response = await axios.get(courseDetailUrl);
-	return response.data;
+	try {
+		const response = await axios.get(courseDetailUrl);
+		return response.data;
+	} catch (error) {
+		console.error("Error getting course detail: ", error);
+		process.exit(1);
+	}
 };
 
 const getLessonInGroup = async (groupId) => {
@@ -195,6 +204,9 @@ const main = async () => {
 	const courseDetail = await getCourseDetail(courseUrl);
 	// console.log("Course detail: ", courseDetail);
 	const { groupList, name: courseName } = courseDetail;
+	if (!fs.existsSync(path.join(__dirname, "download"))) {
+		fs.mkdirSync(path.join(__dirname, "download"));
+	}
 	if (
 		!fs.existsSync(
 			path.join(__dirname, "download", genFolderName(courseName))
