@@ -228,7 +228,7 @@ const main = async () => {
 				continue;
 			}
 			const { id: lessonId, name: lessonName, moduleName } = lesson;
-			console.log(lesson);
+			// console.log(lesson);
 			console.log("Downloading lesson: ", lessonName);
 			if (
 				!fs.existsSync(
