@@ -4,7 +4,7 @@
 
 -   Rename config.example.json to config.json and edit:
 
-    -   **courseToDownload**: Link of course you want to download
+    -   **courseToDownload**: Link of course you want to download _eg: https://moon.vn/khoa-hoc/2549_
 
     -   **resolution**: Set resolution for videos (_480_, _720_, _1080_. default is _1080_)
 
