@@ -49,7 +49,7 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 	return await axios
 		.get(playlistUrl, { httpsAgent })
 		.then(async (response) => {
-			console.log(`Downloading video '${videoName}.pm4' ...`);
+			console.log(`Downloading video '${videoName}.mp4' ...`);
 			response.data.split(/\r?\n/).forEach((line) => {
 				if (line.startsWith("#") || line.trim() === "") {
 					return;
@@ -162,7 +162,7 @@ const donwloadVideoInLesson = async (
 					Authorization: `Bearer ${token}`,
 				},
 			});
-			if (!response.data) {
+			if (response.data.length === 0) {
 				console.log("Lesson doesn't have video");
 				return false;
 			}
@@ -324,8 +324,8 @@ const main = async () => {
 	);
 	const token = await login();
 	console.log("Calculating total video in course...");
-	// const totalVideo = await countVideoInCourse(courseDetail, token);
-	// console.log("Total video in course: ", totalVideo);
+	const totalVideo = await countVideoInCourse(courseDetail, token);
+	console.log("Total video in course: ", totalVideo);
 	console.log("Downloading course...");
 	for (let i = 0; i < groupList.length; i++) {
 		const group = groupList[i];
@@ -452,40 +452,4 @@ async function getSegmentUrls(subPlaylistUrl) {
 		.map((line) => new URL(line, subPlaylistUrl).href);
 	return segmentUrls;
 }
-// (async () => {
-// 	const { courseToDownload: courseUrl } = config;
-// 	const token = await login();
-// 	const courseDetail = await getCourseDetail(courseUrl);
-// 	const { groupList, name: courseName } = courseDetail;
-// 	for (let i = 0; i < groupList.length; i++) {
-// 		const group = groupList[i];
-// 		const { id, name } = group;
-// 		console.log("Downloading chapter: ", name);
-// 		const lessons = await getLessonInGroup(id);
-// 		for (let j = 0; j < lessons.length; j++) {
-// 			const lesson = lessons[j];
-// 			const { id: lessonId, name: lessonName, moduleName } = lesson;
-// 			console.log("Downloading lesson: ", lessonName);
-// 			fs.mkdirSync(
-// 				path.join(__dirname, "test", genFolderName(`${lessonName}`))
-// 			);
-// 			const lessonPath = path.join(
-// 				__dirname,
-// 				"test",
-// 				genFolderName(`${lessonName}`)
-// 			);
-// 			const isLessonDownloaded = await donwloadVideoInLesson(
-// 				lessonId,
-// 				moduleName,
-// 				token,
-// 				lessonPath
-// 			);
-// 			if (isLessonDownloaded) {
-// 				console.log("Downloaded lesson: ", lessonName);
-// 				console.log("\n");
-// 			}
-// 		}
-// 	}
-// })();
-
 main();
