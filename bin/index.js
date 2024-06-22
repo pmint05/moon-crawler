@@ -3,7 +3,7 @@ const path = require("path");
 const https = require("https");
 const axios = require("axios");
 
-const config = require("./config.json");
+const config = require("../config.json");
 
 const LOGIN_API = "https://identity.moon.vn/api/user/login";
 const COURSE_DETAIL_API = "https://courseapi.moon.vn/api/Course/CourseDetail/";
@@ -106,7 +106,7 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 			return false;
 		});
 };
-const getCourseDetail = async (courseUrl) => {
+const getCourseDetail = async (courseUrl, token) => {
 	const courseId = courseUrl.split("/").pop();
 	if (!courseId) {
 		console.error("Invalid course url");
@@ -114,7 +114,11 @@ const getCourseDetail = async (courseUrl) => {
 	}
 	const courseDetailUrl = `${COURSE_DETAIL_API}${courseId}`;
 	try {
-		const response = await axios.get(courseDetailUrl);
+		const response = await axios.get(courseDetailUrl, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		});
 		return response.data;
 	} catch (error) {
 		console.error("Error getting course detail: ", error);
@@ -301,31 +305,44 @@ const donwloadVideoInLesson = async (
 	}
 };
 const main = async () => {
+	const token = await login();
 	const { courseToDownload: courseUrl } = config;
-	const courseDetail = await getCourseDetail(courseUrl);
+	const courseDetail = await getCourseDetail(courseUrl, token);
 	// console.log("Course detail: ", courseDetail);
-	const { groupList, name: courseName } = courseDetail;
-	if (!fs.existsSync(path.join(__dirname, "download"))) {
-		fs.mkdirSync(path.join(__dirname, "download"));
+	const { isBuy, groupList, name: courseName, linkBuy, money } = courseDetail;
+	if (!isBuy) {
+		console.error(`You haven't bought this course: ${courseName}`);
+		console.log(
+			`Please buy this course at: ${new URL(linkBuy, courseUrl).href}`
+		);
+		console.log(
+			`Price: ${money.toLocaleString("vi-VN", {
+				style: "currency",
+				currency: "VND",
+			})}`
+		);
+		process.exit(1);
+	}
+	if (!fs.existsSync(path.join(__dirname, "../download"))) {
+		fs.mkdirSync(path.join(__dirname, "../download"));
 	}
 	if (
 		!fs.existsSync(
-			path.join(__dirname, "download", genFolderName(courseName))
+			path.join(__dirname, "../download", genFolderName(courseName))
 		)
 	) {
 		fs.mkdirSync(
-			path.join(__dirname, "download", genFolderName(courseName))
+			path.join(__dirname, "../download", genFolderName(courseName))
 		);
 	}
 	const coursePath = path.join(
 		__dirname,
-		"download",
+		"../download",
 		genFolderName(courseName)
 	);
-	const token = await login();
-	console.log("Calculating total video in course...");
-	const totalVideo = await countVideoInCourse(courseDetail, token);
-	console.log("Total video in course: ", totalVideo);
+	// console.log("Calculating total video in course...");
+	// const totalVideo = await countVideoInCourse(courseDetail, token);
+	// console.log("Total video in course: ", totalVideo);
 	console.log("Downloading course...");
 	for (let i = 0; i < groupList.length; i++) {
 		const group = groupList[i];

@@ -1,5 +1,11 @@
 HƯỚNG DẪN SỬ DỤNG:
 - Tải repo về máy -> Giải nén
+* Cách tự động:
+- Chạy file edit_config.bat để sửa cấu hình tool, cách sửa ở bên dưới
+- Nếu là lần đầu dùng tool thì chạy file install_packages.bat để cài các thư viện cần cho tool
+- Chạy tiếp file run_it.bat để thực thi tool
+- Chờ đợi là hạnh phúc...
+* Cách thủ công
 - Đổi tên file 'config.example.json' thành 'config.json'
 - Sửa file config.json:
 	+ courseToDownload: Link khóa học trên Moon.vn. Ví dụ: https://moon.vn/khoa-hoc/2549
