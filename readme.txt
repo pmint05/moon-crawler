@@ -18,6 +18,8 @@ HƯỚNG DẪN SỬ DỤNG:
 	+ 'node index.js' hoặc 'node .' -> lệnh này chạy tool
 - Đợi tool chạy xong và hưởng thành quả!
 
+* Update Tool: 
+- Chạy file update.bat khi có phiên bản mới
 
 CÁC LỖI THƯỜNG GẶP:
 - Chưa cài nodejs, để check: mở cmd -> nhập node -v -> enter -> Nếu hiện ra v.xx.xx.xx thì ok
