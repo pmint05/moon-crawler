@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
+const http = require("http");
 const axios = require("axios");
 
 const config = require("../config.json");
@@ -33,20 +34,41 @@ switch (resolution) {
 		stream_num = "stream_0";
 }
 
-async function axiosGetWithRetry(url, options, maxRetries = 5, retryDelay = 1000) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            return await axios.get(url, options);
-        } catch (error) {
-            const isServiceUnavailable = error.response && error.response.status === 503;
-            if (attempt === maxRetries - 1 || !isServiceUnavailable) throw error;
+async function axiosGetWithRetry(
+	url,
+	options = {},
+	maxRetries = 5,
+	retryDelay = 3000
+) {
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		try {
+			return await axios.get(url, {
+				...options,
+				maxContentLength: Infinity,
+				maxBodyLength: Infinity,
+				headers: {
+					...options?.headers,
+					Connection: "keep-alive",
+				},
+			});
+		} catch (error) {
+			const isServiceUnavailable =
+				error.response && error.response.status === 503;
+			if (attempt === maxRetries - 1 || !isServiceUnavailable) {
+				console.log("Cannot download video");
+				return null;
+			}
 
-            // Optionally increase delay for 503 errors
-            const delay = isServiceUnavailable ? retryDelay * 2 : retryDelay;
-            console.log(`Attempt ${attempt + 1}: Service unavailable, retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
+			// Optionally increase delay for 503 errors
+			const delay = isServiceUnavailable ? retryDelay * 2 : retryDelay;
+			console.log(
+				`Attempt ${
+					attempt + 1
+				}: Service unavailable, retrying in ${delay}ms...`
+			);
+			await new Promise((resolve) => setTimeout(resolve, delay));
+		}
+	}
 }
 let donwloadedVideo = 0;
 const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
@@ -61,8 +83,15 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 		port: 443,
 	});
 	const arrayOfSegments = [];
-	return axiosGetWithRetry(playlistUrl, { httpsAgent })
+	return axiosGetWithRetry(playlistUrl, {
+		httpsAgent,
+		maxContentLength: Infinity,
+		maxBodyLength: Infinity,
+	})
 		.then(async (response) => {
+			if (!response) {
+				return false;
+			}
 			console.log(`Downloading video '${videoName}.mp4' ...`);
 			response.data.split(/\r?\n/).forEach((line) => {
 				if (line.startsWith("#") || line.trim() === "") {
@@ -84,6 +113,9 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 						url: fileUrl,
 						method: "GET",
 						responseType: "stream",
+						httpsAgent,
+						maxContentLength: Infinity,
+						maxBodyLength: Infinity,
 					});
 					await new Promise((resolve, reject) => {
 						response.data.pipe(output, { end: false });
@@ -142,7 +174,10 @@ const getCourseDetail = async (courseUrl, token) => {
 
 const getLessonInGroup = async (groupId) => {
 	const lessonInGroupUrl = `${LESSON_IN_GROUP_API}${groupId}`;
-	const response = await axios.get(lessonInGroupUrl);
+	const response = await axiosGetWithRetry(lessonInGroupUrl);
+	if (!response) {
+		return [];
+	}
 	return response.data;
 };
 const login = async () => {
@@ -175,11 +210,14 @@ const donwloadVideoInLesson = async (
 	switch (moduleName) {
 		case "ConfirmVideo":
 			const playlistUrl = `${CONFIRMVIDEO_API}${lessonId}`;
-			const response = await axios.get(playlistUrl, {
+			const response = await axiosGetWithRetry(playlistUrl, {
 				headers: {
 					Authorization: `Bearer ${token}`,
 				},
 			});
+			if (!response) {
+				return false;
+			}
 			if (response.data.length === 0) {
 				console.log("Lesson doesn't have video");
 				return false;
@@ -210,6 +248,12 @@ const donwloadVideoInLesson = async (
 							urlVideo,
 							`stream_${i}`
 						);
+						if (!playlistDataUrl) {
+							console.log(
+								`Video '${fileName}' doesn't have ${Resolution[stream_num]} quality`
+							);
+							continue;
+						}
 						const isSuccessCV = await downloadVideo(
 							fileName,
 							lessonPath,
@@ -239,6 +283,8 @@ const donwloadVideoInLesson = async (
 					);
 					donwloadedVideo++;
 					console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
+				} else {
+					console.log(`Cannot download video '${fileName}.mp4'`);
 				}
 			}
 			return true;
@@ -249,6 +295,9 @@ const donwloadVideoInLesson = async (
 					Authorization: `Bearer ${token}`,
 				},
 			});
+			if (!testingResponse) {
+				return false;
+			}
 			for (video of testingResponse.data) {
 				const { order, questionId } = video;
 				const detail = await axiosGetWithRetry(
@@ -259,6 +308,9 @@ const donwloadVideoInLesson = async (
 						},
 					}
 				);
+				if (!detail) {
+					return false;
+				}
 				// const detail = await axios.get(
 				// 	`https://courseapi.moon.vn/api/Course/ItemQuestion/${questionId}`,
 				// 	{
@@ -292,6 +344,12 @@ const donwloadVideoInLesson = async (
 							detail.data.listTikTokVideoModel[0].urlVideo,
 							`stream_${i}`
 						);
+						if (!videoUrl) {
+							console.log(
+								`Video '${order}.mp4' doesn't have ${Resolution[stream_num]} quality`
+							);
+							continue;
+						}
 						const isSuccessC = await downloadVideo(
 							order,
 							lessonPath,
@@ -416,7 +474,8 @@ const main = async () => {
 		console.log("Downloaded chapter: ", name);
 		console.log("\n");
 	}
-	console.log("Download completed!");
+	console.log("DOWNLOAD COURSE SUCCESSFULLY!");
+	console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 };
 
 const genFolderName = (name) => {
@@ -434,7 +493,7 @@ const countVideoInCourse = async (courseDetail, token) => {
 			switch (moduleName) {
 				case "ConfirmVideo":
 					const playlistUrl = `${CONFIRMVIDEO_API}${lessonId}`;
-					const response = await axios.get(playlistUrl, {
+					const response = await axiosGetWithRetry(playlistUrl, {
 						headers: {
 							Authorization: `Bearer ${token}`,
 						},
@@ -443,11 +502,14 @@ const countVideoInCourse = async (courseDetail, token) => {
 					break;
 				case "Confirm":
 					const testingUrl = `https://courseapi.moon.vn/api/Course/Testing/${lessonId}/1`;
-					const testingResponse = await axios.get(testingUrl, {
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					});
+					const testingResponse = await axiosGetWithRetry(
+						testingUrl,
+						{
+							headers: {
+								Authorization: `Bearer ${token}`,
+							},
+						}
+					);
 					count += testingResponse.data.length;
 					break;
 				default:
@@ -459,12 +521,18 @@ const countVideoInCourse = async (courseDetail, token) => {
 };
 
 async function fetchText(url) {
-	const response = await axios.get(url);
+	const response = await axiosGetWithRetry(url);
+	if (!response) {
+		return "";
+	}
 	return await response.data;
 }
 
 async function getSubPlaylistUrl(mainPlaylistUrl, streamNum) {
 	const mainPlaylistContent = await fetchText(mainPlaylistUrl);
+	if (!mainPlaylistContent) {
+		return "";
+	}
 	const lines = mainPlaylistContent.split("\n");
 	let subPlaylistUrl = "";
 
