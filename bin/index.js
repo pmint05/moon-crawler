@@ -33,6 +33,21 @@ switch (resolution) {
 		stream_num = "stream_0";
 }
 
+async function axiosGetWithRetry(
+	url,
+	options,
+	maxRetries = 3,
+	retryDelay = 1000
+) {
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		try {
+			return await axios.get(url, options);
+		} catch (error) {
+			if (attempt === maxRetries - 1) throw error;
+			await new Promise((resolve) => setTimeout(resolve, retryDelay));
+		}
+	}
+}
 let donwloadedVideo = 0;
 const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 	const outputPath = path.join(lessonPath, `${videoName}.mp4`);
@@ -46,8 +61,7 @@ const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
 		port: 443,
 	});
 	const arrayOfSegments = [];
-	return await axios
-		.get(playlistUrl, { httpsAgent })
+	return axiosGetWithRetry(playlistUrl, { httpsAgent })
 		.then(async (response) => {
 			console.log(`Downloading video '${videoName}.mp4' ...`);
 			response.data.split(/\r?\n/).forEach((line) => {
@@ -230,14 +244,14 @@ const donwloadVideoInLesson = async (
 			return true;
 		case "Confirm":
 			const testingUrl = `https://courseapi.moon.vn/api/Course/Testing/${lessonId}/1`;
-			const testingResponse = await axios.get(testingUrl, {
+			const testingResponse = await axiosGetWithRetry(testingUrl, {
 				headers: {
 					Authorization: `Bearer ${token}`,
 				},
 			});
 			for (video of testingResponse.data) {
 				const { order, questionId } = video;
-				const detail = await axios.get(
+				const detail = await axiosGetWithRetry(
 					`https://courseapi.moon.vn/api/Course/ItemQuestion/${questionId}`,
 					{
 						headers: {
@@ -245,6 +259,14 @@ const donwloadVideoInLesson = async (
 						},
 					}
 				);
+				// const detail = await axios.get(
+				// 	`https://courseapi.moon.vn/api/Course/ItemQuestion/${questionId}`,
+				// 	{
+				// 		headers: {
+				// 			Authorization: `Bearer ${token}`,
+				// 		},
+				// 	}
+				// );
 				if (!detail.data.listTikTokVideoModel[0]) {
 					console.log(
 						`Question ${order} doesn't have solution video`
@@ -469,4 +491,5 @@ async function getSegmentUrls(subPlaylistUrl) {
 		.map((line) => new URL(line, subPlaylistUrl).href);
 	return segmentUrls;
 }
+
 main();
