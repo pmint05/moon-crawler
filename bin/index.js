@@ -33,20 +33,20 @@ switch (resolution) {
 		stream_num = "stream_0";
 }
 
-async function axiosGetWithRetry(
-	url,
-	options,
-	maxRetries = 3,
-	retryDelay = 1000
-) {
-	for (let attempt = 0; attempt < maxRetries; attempt++) {
-		try {
-			return await axios.get(url, options);
-		} catch (error) {
-			if (attempt === maxRetries - 1) throw error;
-			await new Promise((resolve) => setTimeout(resolve, retryDelay));
-		}
-	}
+async function axiosGetWithRetry(url, options, maxRetries = 5, retryDelay = 1000) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await axios.get(url, options);
+        } catch (error) {
+            const isServiceUnavailable = error.response && error.response.status === 503;
+            if (attempt === maxRetries - 1 || !isServiceUnavailable) throw error;
+
+            // Optionally increase delay for 503 errors
+            const delay = isServiceUnavailable ? retryDelay * 2 : retryDelay;
+            console.log(`Attempt ${attempt + 1}: Service unavailable, retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
 }
 let donwloadedVideo = 0;
 const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
