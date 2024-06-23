@@ -72,6 +72,7 @@ async function axiosGetWithRetry(
 }
 let donwloadedVideo = 0;
 const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
+	// console.log(playlistUrl);
 	const outputPath = path.join(lessonPath, `${videoName}.mp4`);
 
 	// const m3u8Url =
@@ -244,7 +245,7 @@ const donwloadVideoInLesson = async (
 							}`
 						);
 						if (Number(stream_num.split("_")[1]) === i) continue;
-						playlistDataUrl = getSubPlaylistUrl(
+						playlistDataUrl = await getSubPlaylistUrl(
 							urlVideo,
 							`stream_${i}`
 						);
@@ -311,14 +312,6 @@ const donwloadVideoInLesson = async (
 				if (!detail) {
 					return false;
 				}
-				// const detail = await axios.get(
-				// 	`https://courseapi.moon.vn/api/Course/ItemQuestion/${questionId}`,
-				// 	{
-				// 		headers: {
-				// 			Authorization: `Bearer ${token}`,
-				// 		},
-				// 	}
-				// );
 				if (!detail.data.listTikTokVideoModel[0]) {
 					console.log(
 						`Question ${order} doesn't have solution video`
@@ -386,7 +379,7 @@ const donwloadVideoInLesson = async (
 };
 const main = async () => {
 	const token = await login();
-	const { courseToDownload: courseUrl } = config;
+	const { courseToDownload: courseUrl, chapter } = config;
 	const courseDetail = await getCourseDetail(courseUrl, token);
 	// console.log("Course detail: ", courseDetail);
 	const { isBuy, groupList, name: courseName, linkBuy, money } = courseDetail;
@@ -424,6 +417,10 @@ const main = async () => {
 	// const totalVideo = await countVideoInCourse(courseDetail, token);
 	// console.log("Total video in course: ", totalVideo);
 	console.log("Downloading course...");
+	if (chapter && chapter !== "0") {
+		await downloadChapter(chapter, groupList, coursePath, token);
+		return;
+	}
 	for (let i = 0; i < groupList.length; i++) {
 		const group = groupList[i];
 		const { id, name } = group;
@@ -480,6 +477,51 @@ const main = async () => {
 
 const genFolderName = (name) => {
 	return name.replace(/:/g, "").replace(/[/\\?%*|"<>]/g, "-");
+};
+const downloadChapter = async (chapter, groupList, coursePath, token) => {
+	const group = groupList[chapter - 1];
+	if (!group) {
+		console.error("Invalid chapter");
+		process.exit(1);
+	}
+	const { id, name } = group;
+	console.log("Downloading chapter: ", name);
+	if (!fs.existsSync(path.join(coursePath, genFolderName(name)))) {
+		fs.mkdirSync(path.join(coursePath, genFolderName(name)));
+	}
+	const groupPath = path.join(coursePath, genFolderName(name));
+	const lessons = await getLessonInGroup(id);
+	for (let j = 0; j < lessons.length; j++) {
+		const lesson = lessons[j];
+		if (!lesson) {
+			continue;
+		}
+		const { id: lessonId, name: lessonName, moduleName } = lesson;
+		console.log("Downloading lesson: ", lessonName);
+		if (
+			!fs.existsSync(
+				path.join(groupPath, genFolderName(`${j + 1}. ${lessonName}`))
+			)
+		) {
+			fs.mkdirSync(
+				path.join(groupPath, genFolderName(`${j + 1}. ${lessonName}`))
+			);
+		}
+		const lessonPath = path.join(
+			groupPath,
+			genFolderName(`${j + 1}. ${lessonName}`)
+		);
+		const isLessonDownloaded = await donwloadVideoInLesson(
+			lessonId,
+			moduleName,
+			token,
+			lessonPath
+		);
+		if (isLessonDownloaded) {
+			console.log("Downloaded lesson: ", lessonName);
+			console.log("\n");
+		}
+	}
 };
 const countVideoInCourse = async (courseDetail, token) => {
 	let count = 0;

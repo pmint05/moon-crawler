@@ -9,6 +9,7 @@ HƯỚNG DẪN SỬ DỤNG:
 - Đổi tên file 'config.example.json' thành 'config.json'
 - Sửa file config.json:
 	+ courseToDownload: Link khóa học trên Moon.vn. Ví dụ: https://moon.vn/khoa-hoc/2549
+	+ chapter: Chương học cần down: 1, 2, 3, ... Muốn down tất cả để chapter là "0"
 	+ resolution: Độ phân giải của video tải về, mặc định là 1080. Có các tùy chọn 480, 720, 1080.
 		-> Tốt nhất nên tải 1080 vì vừa nét và hầu hết các video trên Moon đều có độ phân giải này (mỗi tội down lâu hơn xíu)
 	+ username và password tài khoản có khóa học cần down
