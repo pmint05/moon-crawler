@@ -71,8 +71,9 @@ async function axiosGetWithRetry(
 	}
 }
 let donwloadedVideo = 0;
-const downloadVideo = async (videoName, lessonPath, playlistUrl) => {
+const downloadVideo = async (fileName, lessonPath, playlistUrl) => {
 	// console.log(playlistUrl);
+	const videoName = validPath(fileName);
 	const outputPath = path.join(lessonPath, `${videoName}.mp4`);
 
 	// const m3u8Url =
@@ -401,23 +402,23 @@ const main = async () => {
 	}
 	if (
 		!fs.existsSync(
-			path.join(__dirname, "../download", genFolderName(courseName))
+			path.join(__dirname, "../download", validPath(courseName))
 		)
 	) {
 		fs.mkdirSync(
-			path.join(__dirname, "../download", genFolderName(courseName))
+			path.join(__dirname, "../download", validPath(courseName))
 		);
 	}
 	const coursePath = path.join(
 		__dirname,
 		"../download",
-		genFolderName(courseName)
+		validPath(courseName)
 	);
 	// console.log("Calculating total video in course...");
 	// const totalVideo = await countVideoInCourse(courseDetail, token);
 	// console.log("Total video in course: ", totalVideo);
 	console.log("Downloading course...");
-	if (chapter && chapter !== "0") {
+	if (chapter && Number(chapter) > 0) {
 		await downloadChapter(chapter, groupList, coursePath, token);
 		return;
 	}
@@ -425,10 +426,10 @@ const main = async () => {
 		const group = groupList[i];
 		const { id, name } = group;
 		console.log("Downloading chapter: ", name);
-		if (!fs.existsSync(path.join(coursePath, genFolderName(name)))) {
-			fs.mkdirSync(path.join(coursePath, genFolderName(name)));
+		if (!fs.existsSync(path.join(coursePath, validPath(name)))) {
+			fs.mkdirSync(path.join(coursePath, validPath(name)));
 		}
-		const groupPath = path.join(coursePath, genFolderName(name));
+		const groupPath = path.join(coursePath, validPath(name));
 		const lessons = await getLessonInGroup(id);
 		for (let j = 0; j < lessons.length; j++) {
 			const lesson = lessons[j];
@@ -440,22 +441,16 @@ const main = async () => {
 			console.log("Downloading lesson: ", lessonName);
 			if (
 				!fs.existsSync(
-					path.join(
-						groupPath,
-						genFolderName(`${j + 1}. ${lessonName}`)
-					)
+					path.join(groupPath, validPath(`${j + 1}. ${lessonName}`))
 				)
 			) {
 				fs.mkdirSync(
-					path.join(
-						groupPath,
-						genFolderName(`${j + 1}. ${lessonName}`)
-					)
+					path.join(groupPath, validPath(`${j + 1}. ${lessonName}`))
 				);
 			}
 			const lessonPath = path.join(
 				groupPath,
-				genFolderName(`${j + 1}. ${lessonName}`)
+				validPath(`${j + 1}. ${lessonName}`)
 			);
 			const isLessonDownloaded = await donwloadVideoInLesson(
 				lessonId,
@@ -471,27 +466,27 @@ const main = async () => {
 		console.log("Downloaded chapter: ", name);
 		console.log("\n");
 	}
-	console.log("DOWNLOAD COURSE SUCCESSFULLY!");
-	console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
+	console.log(`DOWNLOAD COURSE ${courseName} SUCCESSFULLY!`);
+	console.log("WITH TOTAL VIDEOS: ", donwloadedVideo);
 };
 
-const genFolderName = (name) => {
+const validPath = (name) => {
 	return name.replace(/:/g, "").replace(/[/\\?%*|"<>]/g, "-");
 };
 const downloadChapter = async (chapter, groupList, coursePath, token) => {
-	const group = groupList[chapter - 1];
+	const group = groupList[Number(chapter) - 1];
 	if (!group) {
 		console.error("Invalid chapter");
 		process.exit(1);
 	}
 	const { id, name } = group;
 	console.log("Downloading chapter: ", name);
-	if (!fs.existsSync(path.join(coursePath, genFolderName(name)))) {
-		fs.mkdirSync(path.join(coursePath, genFolderName(name)));
+	if (!fs.existsSync(path.join(coursePath, validPath(name)))) {
+		fs.mkdirSync(path.join(coursePath, validPath(name)));
 	}
-	const groupPath = path.join(coursePath, genFolderName(name));
+	const groupPath = path.join(coursePath, validPath(name));
 	const lessons = await getLessonInGroup(id);
-	for (let j = 0; j < lessons.length; j++) {
+	for (let j = 5; j < lessons.length; j++) {
 		const lesson = lessons[j];
 		if (!lesson) {
 			continue;
@@ -500,16 +495,16 @@ const downloadChapter = async (chapter, groupList, coursePath, token) => {
 		console.log("Downloading lesson: ", lessonName);
 		if (
 			!fs.existsSync(
-				path.join(groupPath, genFolderName(`${j + 1}. ${lessonName}`))
+				path.join(groupPath, validPath(`${j + 1}. ${lessonName}`))
 			)
 		) {
 			fs.mkdirSync(
-				path.join(groupPath, genFolderName(`${j + 1}. ${lessonName}`))
+				path.join(groupPath, validPath(`${j + 1}. ${lessonName}`))
 			);
 		}
 		const lessonPath = path.join(
 			groupPath,
-			genFolderName(`${j + 1}. ${lessonName}`)
+			validPath(`${j + 1}. ${lessonName}`)
 		);
 		const isLessonDownloaded = await donwloadVideoInLesson(
 			lessonId,
