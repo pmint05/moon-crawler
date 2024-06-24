@@ -486,7 +486,7 @@ const downloadChapter = async (chapter, groupList, coursePath, token) => {
 	}
 	const groupPath = path.join(coursePath, validPath(name));
 	const lessons = await getLessonInGroup(id);
-	for (let j = 5; j < lessons.length; j++) {
+	for (let j = 0; j < lessons.length; j++) {
 		const lesson = lessons[j];
 		if (!lesson) {
 			continue;
