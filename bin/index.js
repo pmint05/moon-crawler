@@ -1,9 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
-const http = require("http");
 const axios = require("axios");
-
+const nodeHtmlToImage = require("node-html-to-image");
 const config = require("../config.json");
 
 const LOGIN_API = "https://identity.moon.vn/api/user/login";
@@ -70,14 +69,65 @@ async function axiosGetWithRetry(
 		}
 	}
 }
-let donwloadedVideo = 0;
-const downloadVideo = async (fileName, lessonPath, playlistUrl) => {
-	// console.log(playlistUrl);
-	const videoName = validPath(fileName);
-	const outputPath = path.join(lessonPath, `${videoName}.mp4`);
 
-	// const m3u8Url =
-	// 	"https://lessonvid.moon.vn/12046453/12046456/stream_0/playlist.m3u8";
+function generateHtmlForImage(item, isAnswer = false) {
+	let body = "";
+	if (!isAnswer) {
+		if (item.questionText) {
+			body += `<h3><b>${item.order}.</b> ${item.questionText}</h3>`;
+		}
+		if (item.a) {
+			body += `<div class="answer"><b>A.</b> ${item.a}</div>`;
+		}
+		if (item.b) {
+			body += `<div class="answer"><b>B.</b> ${item.b}</div>`;
+		}
+		if (item.c) {
+			body += `<div class="answer"><b>C.</b> ${item.c}</div>`;
+		}
+		if (item.d) {
+			body += `<div class="answer"><b>D.</b> ${item.d}</div>`;
+		}
+		if (item.e) {
+			body += `<div class="answer"><b>E.</b> ${item.e}</div>`;
+		}
+	} else {
+		if (item.answer) {
+			body += `<div class="answer"><b>${item.order}. </b>${item.answer}</div>`;
+		} else {
+			body += `<div class="answer">Đáp án: <b>${item.key}</b></div>`;
+		}
+	}
+	return `<html>
+                <head>
+                    <style>
+                        body {
+                            margin: 0;
+                            padding: 20px;
+                            width: auto;
+                            height: auto;
+                            display: inline-block;
+                            font-size: 16px;
+                        }
+                        img {
+                            height: auto;
+                            display: inline-block;
+                            vertical-align: middle;
+                            margin: 0 5px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${body}
+                </body>
+            </html>`;
+}
+
+let donwloadedVideo = 0;
+const downloadVideo = async (fileName, targetPath, playlistUrl) => {
+	const videoName = validPath(fileName);
+	const outputPath = path.join(targetPath, `${videoName}.mp4`);
+
 	const baseUri = playlistUrl.split("/").slice(0, -1).join("/");
 
 	const httpsAgent = new https.Agent({
@@ -199,7 +249,7 @@ const login = async () => {
 		console.log(`Logged in with user: ${username}`);
 		return token;
 	} catch (error) {
-		console.error("Error logging in: ", error);
+		console.error("Error logging in: ", error.response.data);
 		process.exit(1);
 	}
 };
@@ -313,6 +363,8 @@ const donwloadVideoInLesson = async (
 				if (!detail) {
 					return false;
 				}
+				const questionPath = path.join(lessonPath, `Câu ${order}`);
+				await downloadQuestion(questionPath, video);
 				if (!detail.data.listTikTokVideoModel[0]) {
 					console.log(
 						`Question ${order} doesn't have solution video`
@@ -346,8 +398,10 @@ const donwloadVideoInLesson = async (
 						}
 						const isSuccessC = await downloadVideo(
 							order,
-							lessonPath,
-							videoUrl
+							questionPath,
+							videoUrl,
+							moduleName,
+							detail
 						);
 						if (isSuccessC) {
 							console.log(
@@ -364,8 +418,10 @@ const donwloadVideoInLesson = async (
 				}
 				const isSuccessC = await downloadVideo(
 					order,
-					lessonPath,
-					videoUrl
+					questionPath,
+					videoUrl,
+					moduleName,
+					detail
 				);
 				if (isSuccessC) {
 					console.log(`Download video '${order}.mp4' successfully!`);
@@ -520,6 +576,7 @@ const downloadChapter = async (chapter, groupList, coursePath, token) => {
 			console.log("\n");
 		}
 	}
+	console.log("Downloaded chapter: ", name);
 };
 const countVideoInCourse = async (courseDetail, token) => {
 	let count = 0;
@@ -599,5 +656,25 @@ async function getSegmentUrls(subPlaylistUrl) {
 		.map((line) => new URL(line, subPlaylistUrl).href);
 	return segmentUrls;
 }
+
+const downloadQuestion = async (questionPath, detail) => {
+	if (!fs.existsSync(questionPath)) {
+		fs.mkdirSync(questionPath);
+	}
+	await nodeHtmlToImage({
+		output: path.join(questionPath, `${detail.order}_question.png`),
+		html: generateHtmlForImage(detail, false),
+	}).catch((error) => {
+		console.error(`Cannot save question '${detail.order}_question.png'`);
+	});
+	await nodeHtmlToImage({
+		output: path.join(questionPath, `${detail.order}_key.png`),
+		html: generateHtmlForImage(detail, true),
+	}).catch((error) => {
+		console.error(`Cannot save question '${detail.order}_key.png'`);
+	});
+	console.log(`Save question ${detail.order} image successfully!`);
+	return true;
+};
 
 main();
