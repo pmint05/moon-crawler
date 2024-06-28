@@ -545,7 +545,17 @@ const downloadChapter = async (chapter, groupList, coursePath, token) => {
 	}
 	const groupPath = path.join(coursePath, validPath(name));
 	const lessons = await getLessonInGroup(id);
-	for (let j = 0; j < lessons.length; j++) {
+	const { lesson: lessonToDown } = config;
+	let low = 0;
+	let high = lessons.length;
+	if (Number(lessonToDown) > 0) {
+		low = Number(lessonToDown) - 1;
+		high = Number(lessonToDown);
+	}
+	if (high > lessons.length) {
+		console.error("Invalid lesson: ", lessonToDown);
+	}
+	for (let j = low; j < high; j++) {
 		const lesson = lessons[j];
 		if (!lesson) {
 			continue;

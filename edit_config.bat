@@ -20,6 +20,7 @@ if exist "%configFile%" (
 		echo {
 		echo     "courseToDownload": "your_course_url",
 		echo     "chapter": "0",
+		echo     "lesson": "0",
 		echo     "resolution": "480/720/1080",
 		echo     "username": "your_username",
 		echo     "password": "your_password",

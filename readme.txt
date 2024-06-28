@@ -10,6 +10,8 @@ HƯỚNG DẪN SỬ DỤNG:
 - Sửa file config.json:
 	+ courseToDownload: Link khóa học trên Moon.vn. Ví dụ: https://moon.vn/khoa-hoc/2549
 	+ chapter: Chương học cần down: 1, 2, 3, ... Muốn down tất cả để chapter là "0"
+	+ lesson: Bài học cần down: 1, 2, 3, ... Muốn down tất cả để lesson là "0"
+		* Nếu chapter là "0" sẽ down tất cả các chương và bài học kể cả khi lesson > 0
 	+ resolution: Độ phân giải của video tải về, mặc định là 1080. Có các tùy chọn 480, 720, 1080.
 		-> Tốt nhất nên tải 1080 vì vừa nét và hầu hết các video trên Moon đều có độ phân giải này (mỗi tội down lâu hơn xíu)
 	+ username và password tài khoản có khóa học cần down
@@ -21,8 +23,9 @@ HƯỚNG DẪN SỬ DỤNG:
 
 * Update Tool: 
 - Chạy file update.bat khi có phiên bản mới
+- Chạy lại install_packages.bat nếu cần thiết
 
 CÁC LỖI THƯỜNG GẶP:
 - Chưa cài nodejs, để check: mở cmd -> nhập node -v -> enter -> Nếu hiện ra v.xx.xx.xx thì ok
-- Chưa cài package -> mở cmd ở folder chưa tool -> chạy 'npm i' -> xong xuôi thì 'node .' để chạy tool
+- Chưa cài package -> mở cmd ở folder chưa tool -> chạy 'npm i' -> xong xuôi thì 'node .' để chạy tool. Hoặc chạy install_packages.bat -> chạy run_it.bat
 - ... Còn các lỗi khác nếu gặp thì liên hệ t.me/pmint05

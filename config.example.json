@@ -1,6 +1,7 @@
 {
 	"courseToDownload": "your_course_url",
 	"chapter": "0/1/2/3/...",
+	"lesson": "0/1/2/3/...",
 	"resolution": "480/720/1080",
 	"username": "your_username",
 	"password": "your_password"
