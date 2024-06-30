@@ -3,7 +3,10 @@ const path = require("path");
 const https = require("https");
 const axios = require("axios");
 const config = require("../config.json");
-const htmlTemplate = fs.readFileSync("./template/pdf_template.hbs", "utf8");
+const htmlTemplate = fs.readFileSync(
+	path.join(__dirname, "./template/pdf_template.hbs"),
+	"utf8"
+);
 const puppeteer = require("puppeteer");
 const Handlebars = require("handlebars");
 
