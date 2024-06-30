@@ -2,8 +2,10 @@ const fs = require("fs");
 const path = require("path");
 const https = require("https");
 const axios = require("axios");
-const nodeHtmlToImage = require("node-html-to-image");
 const config = require("../config.json");
+const htmlTemplate = fs.readFileSync("./template/pdf_template.hbs", "utf8");
+const puppeteer = require("puppeteer");
+const Handlebars = require("handlebars");
 
 const LOGIN_API = "https://identity.moon.vn/api/user/login";
 const COURSE_DETAIL_API = "https://courseapi.moon.vn/api/Course/CourseDetail/";
@@ -11,7 +13,7 @@ const LESSON_IN_GROUP_API =
 	"https://courseapi.moon.vn/api/Course/LessonInGroup/";
 const CONFIRMVIDEO_API =
 	"https://courseapi.moon.vn/api/course/VideoLessonTikTok/";
-
+const LESSON_DETAIL_API = "https://courseapi.moon.vn/api/Course/LessonDetail/";
 const Resolution = {
 	stream_0: "1080",
 	stream_1: "720",
@@ -341,63 +343,135 @@ const donwloadVideoInLesson = async (
 			}
 			return true;
 		case "Confirm":
-			const testingUrl = `https://courseapi.moon.vn/api/Course/Testing/${lessonId}/1`;
-			const testingResponse = await axiosGetWithRetry(testingUrl, {
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			});
-			if (!testingResponse) {
+			const lessonDetail = await axiosGetWithRetry(
+				`${LESSON_DETAIL_API}${lessonId}`,
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				}
+			);
+			if (!lessonDetail) {
 				return false;
 			}
-			for (video of testingResponse.data) {
-				const { order, questionId } = video;
-				const detail = await axiosGetWithRetry(
-					`https://courseapi.moon.vn/api/Course/ItemQuestion/${questionId}`,
-					{
-						headers: {
-							Authorization: `Bearer ${token}`,
-						},
-					}
-				);
-				if (!detail) {
+			const { subModuleName, keyAllEnglish } = lessonDetail.data;
+			if (subModuleName === "audio" && keyAllEnglish !== null) {
+				const testingUrl = `https://courseapi.moon.vn/api/Course/TestingEnglish/${lessonId}/1`;
+				const testingResponse = await axiosGetWithRetry(testingUrl, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+				if (!testingResponse) {
 					return false;
 				}
-				const questionPath = path.join(lessonPath, `Câu ${order}`);
-				await downloadQuestion(questionPath, video);
-				if (!detail.data.listTikTokVideoModel[0]) {
-					console.log(
-						`Question ${order} doesn't have solution video`
-					);
-					continue;
-				}
-				let videoUrl = await getSubPlaylistUrl(
-					detail.data.listTikTokVideoModel[0].urlVideo,
-					stream_num
-				);
-				if (!videoUrl) {
-					console.log(
-						`Video '${order}.mp4' doesn't have ${Resolution[stream_num]} quality`
-					);
-					for (let i = 0; i < 3; i++) {
-						console.log(
-							`Retry download video ${order}.mp4 in ${
-								Resolution[`stream_${i}`]
-							}`
+				for (let i = 0; i < testingResponse.data.length; i++) {
+					const { id, isAudio, title } = testingResponse.data[i];
+					if (isAudio) {
+						const audioUrl = `https://media.moon.vn/audio/englishtitle?id=${id}`;
+						const audioPath = path.join(
+							lessonPath,
+							validPath(title)
 						);
-						if (Number(stream_num.split("_")[1]) === i) continue;
-						videoUrl = await getSubPlaylistUrl(
-							detail.data.listTikTokVideoModel[0].urlVideo,
-							`stream_${i}`
+						if (!fs.existsSync(audioPath)) {
+							fs.mkdirSync(audioPath);
+						}
+						console.log(`Downloading audio '${title}.mp3' ...`);
+						const audioOutputPath = path.join(
+							audioPath,
+							`${validPath(title)}.mp3`
 						);
-						if (!videoUrl) {
+						const audioOutput =
+							fs.createWriteStream(audioOutputPath);
+						const audioResponse = await axios({
+							url: audioUrl,
+							method: "GET",
+							responseType: "stream",
+						});
+						if (!audioResponse) {
+							return false;
+						}
+						audioResponse.data.pipe(audioOutput);
+					} else {
+						const detail = await axiosGetWithRetry(
+							`https://courseapi.moon.vn/api/Course/ItemQuestion/${id}`,
+							{
+								headers: {
+									Authorization: `Bearer ${token}`,
+								},
+							}
+						);
+						if (!detail) {
+							return false;
+						}
+						const questionPath = path.join(
+							lessonPath,
+							`Câu ${i + 1}`
+						);
+						if (!fs.existsSync(questionPath)) {
+							fs.mkdirSync(questionPath);
+						}
+						if (!detail.data.listTikTokVideoModel[0]) {
 							console.log(
-								`Video '${order}.mp4' doesn't have ${Resolution[stream_num]} quality`
+								`Question ${i + 1} doesn't have solution video`
 							);
 							continue;
 						}
+						let videoUrl = await getSubPlaylistUrl(
+							detail.data.listTikTokVideoModel[0].urlVideo,
+							stream_num
+						);
+						if (!videoUrl) {
+							console.log(
+								`Video '${i + 1}.mp4' doesn't have ${
+									Resolution[stream_num]
+								} quality`
+							);
+							for (let i = 0; i < 3; i++) {
+								console.log(
+									`Retry download video ${i + 1}.mp4 in ${
+										Resolution[`stream_${i}`]
+									}`
+								);
+								if (Number(stream_num.split("_")[1]) === i)
+									continue;
+								videoUrl = await getSubPlaylistUrl(
+									detail.data.listTikTokVideoModel[0]
+										.urlVideo,
+									`stream_${i}`
+								);
+								if (!videoUrl) {
+									console.log(
+										`Video '${i + 1}.mp4' doesn't have ${
+											Resolution[stream_num]
+										} quality`
+									);
+									continue;
+								}
+								const isSuccessC = await downloadVideo(
+									i + 1,
+									questionPath,
+									videoUrl,
+									moduleName,
+									detail
+								);
+								if (isSuccessC) {
+									console.log(
+										`Download video '${
+											i + 1
+										}.mp4' successfully!`
+									);
+									donwloadedVideo++;
+									console.log(
+										"TOTAL VIDEOS DOWNLOADED: ",
+										donwloadedVideo
+									);
+									break;
+								}
+							}
+						}
 						const isSuccessC = await downloadVideo(
-							order,
+							i + 1,
 							questionPath,
 							videoUrl,
 							moduleName,
@@ -405,31 +479,117 @@ const donwloadVideoInLesson = async (
 						);
 						if (isSuccessC) {
 							console.log(
-								`Download video '${order}.mp4' successfully!`
+								`Download video '${i + 1}.mp4' successfully!`
 							);
 							donwloadedVideo++;
 							console.log(
 								"TOTAL VIDEOS DOWNLOADED: ",
 								donwloadedVideo
 							);
-							break;
 						}
 					}
 				}
-				const isSuccessC = await downloadVideo(
-					order,
-					questionPath,
-					videoUrl,
-					moduleName,
-					detail
-				);
-				if (isSuccessC) {
-					console.log(`Download video '${order}.mp4' successfully!`);
-					donwloadedVideo++;
-					console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
+				return true;
+			} else {
+				const testingUrl = `https://courseapi.moon.vn/api/Course/Testing/${lessonId}/1`;
+				const testingResponse = await axiosGetWithRetry(testingUrl, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+				if (!testingResponse) {
+					return false;
 				}
+				await downloadPDF("Full", testingResponse.data, lessonPath);
+				for (video of testingResponse.data) {
+					const { order, questionId } = video;
+					const detail = await axiosGetWithRetry(
+						`https://courseapi.moon.vn/api/Course/ItemQuestion/${questionId}`,
+						{
+							headers: {
+								Authorization: `Bearer ${token}`,
+							},
+						}
+					);
+					if (!detail) {
+						return false;
+					}
+					const questionPath = path.join(lessonPath, `Câu ${order}`);
+					if (!fs.existsSync(questionPath)) {
+						fs.mkdirSync(questionPath);
+					}
+					if (!detail.data.listTikTokVideoModel[0]) {
+						console.log(
+							`Question ${order} doesn't have solution video`
+						);
+						continue;
+					}
+					let videoUrl = await getSubPlaylistUrl(
+						detail.data.listTikTokVideoModel[0].urlVideo,
+						stream_num
+					);
+					if (!videoUrl) {
+						console.log(
+							`Video '${order}.mp4' doesn't have ${Resolution[stream_num]} quality`
+						);
+						for (let i = 0; i < 3; i++) {
+							console.log(
+								`Retry download video ${order}.mp4 in ${
+									Resolution[`stream_${i}`]
+								}`
+							);
+							if (Number(stream_num.split("_")[1]) === i)
+								continue;
+							videoUrl = await getSubPlaylistUrl(
+								detail.data.listTikTokVideoModel[0].urlVideo,
+								`stream_${i}`
+							);
+							if (!videoUrl) {
+								console.log(
+									`Video '${order}.mp4' doesn't have ${Resolution[stream_num]} quality`
+								);
+								continue;
+							}
+							const isSuccessC = await downloadVideo(
+								order,
+								questionPath,
+								videoUrl,
+								moduleName,
+								detail
+							);
+							if (isSuccessC) {
+								console.log(
+									`Download video '${order}.mp4' successfully!`
+								);
+								donwloadedVideo++;
+								console.log(
+									"TOTAL VIDEOS DOWNLOADED: ",
+									donwloadedVideo
+								);
+								break;
+							}
+						}
+					}
+					const isSuccessC = await downloadVideo(
+						order,
+						questionPath,
+						videoUrl,
+						moduleName,
+						detail
+					);
+					if (isSuccessC) {
+						console.log(
+							`Download video '${order}.mp4' successfully!`
+						);
+						donwloadedVideo++;
+						console.log(
+							"TOTAL VIDEOS DOWNLOADED: ",
+							donwloadedVideo
+						);
+					}
+				}
+				return true;
 			}
-			return true;
 		default:
 			return false;
 	}
@@ -530,7 +690,9 @@ const validPath = (name) => {
 	return name
 		.toString()
 		.replace(/:/g, "")
-		.replace(/[/\\?%*|"<>]/g, "-");
+		.replace(/\//g, "")
+		.replace(/[\\?%*|"<>]/g, "-")
+		.replace(/\.$/, "");
 };
 const downloadChapter = async (chapter, groupList, coursePath, token) => {
 	const group = groupList[Number(chapter) - 1];
@@ -588,6 +750,50 @@ const downloadChapter = async (chapter, groupList, coursePath, token) => {
 	}
 	console.log("Downloaded chapter: ", name);
 };
+
+async function downloadPDF(name, data, savePath) {
+	const html = Handlebars.compile(htmlTemplate)({
+		data,
+	});
+	console.log("Saving PDF...");
+	// console.log(html);
+	// fs.writeFileSync("final.html", html);
+	const browser = await puppeteer.launch({
+		headless: true,
+		args: ["--no-sandbox", "--disable-setuid-sandbox"],
+	});
+	const page = await browser.newPage();
+
+	await page.setContent(html, { waitUntil: "networkidle0" });
+
+	// Run any necessary JavaScript here
+	// await page.evaluate(() => {
+	//   // Your JS code here
+	// });
+
+	// Generate PDF
+	await page
+		.pdf({
+			path: path.join(savePath, `${validPath(name)}.pdf`), // path: "final.pdf
+			format: "A4",
+			margin: {
+				top: "20px",
+				right: "20px",
+				bottom: "20px",
+				left: "20px",
+			},
+			printBackground: true,
+		})
+		.then(() => {
+			console.log("Saved PDF successfully!");
+		})
+		.catch((error) => {
+			console.error("Error saving PDF: ", error);
+		});
+
+	await browser.close();
+}
+
 const countVideoInCourse = async (courseDetail, token) => {
 	let count = 0;
 	const { groupList } = courseDetail;
@@ -666,25 +872,5 @@ async function getSegmentUrls(subPlaylistUrl) {
 		.map((line) => new URL(line, subPlaylistUrl).href);
 	return segmentUrls;
 }
-
-const downloadQuestion = async (questionPath, detail) => {
-	if (!fs.existsSync(questionPath)) {
-		fs.mkdirSync(questionPath);
-	}
-	await nodeHtmlToImage({
-		output: path.join(questionPath, `${detail.order}_question.png`),
-		html: generateHtmlForImage(detail, false),
-	}).catch((error) => {
-		console.error(`Cannot save question '${detail.order}_question.png'`);
-	});
-	await nodeHtmlToImage({
-		output: path.join(questionPath, `${detail.order}_key.png`),
-		html: generateHtmlForImage(detail, true),
-	}).catch((error) => {
-		console.error(`Cannot save question '${detail.order}_key.png'`);
-	});
-	console.log(`Save question ${detail.order} image successfully!`);
-	return true;
-};
 
 main();

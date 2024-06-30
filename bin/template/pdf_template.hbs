@@ -1,0 +1,71 @@
+<html>
+
+	<head>
+		<mate charest="utf-8" />
+		<style>
+			body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			line-height: 1.6; font-size: 16px; } ul { list-style-type: none; }
+			li+li { margin-top: 1em; } img { max-width: 100%; height: auto;
+			display: inline-block; vertical-align: middle!important; margin: 0
+			5px 5px 5px;} h3 { display: inline-block; } p { display: inline;
+			margin: 0; padding: 0; } .choice + .choice { margin-top: 0.5em; }
+			.result { padding: 1em; border: 1px solid #ccc; border-radius: 10px;
+			position: relative;} .result span.result-header { position:
+			absolute; top: -.8em; left: 1em; background: #fff; padding: 0 0.5em;
+			border: 1px solid #ccc; border-radius: 5px; color: #333;} .answer {
+			margin-top: .5em; } .key { font-size: 1.2em; } .choice { margin-top:
+			0.5em; } .choice b { font-size: 1.2em; }
+		</style>
+
+	</head>
+
+	<body>
+		<h1></h1>
+		<ul>
+			{{#each data}}
+				<li>
+					<div>
+						<h3>{{this.order}}.</h3>
+						{{{this.questionText}}}
+					</div>
+					{{#if this.a}}
+						<div class="choice"><b>A. </b>{{{this.a}}}</div>
+					{{/if}}
+					{{#if this.b}}
+						<div class="choice"><b>B. </b>{{{this.b}}}</div>
+					{{/if}}
+					{{#if this.c}}
+						<div class="choice"><b>C. </b>{{{this.c}}}</div>
+					{{/if}}
+					{{#if this.d}}
+						<div class="choice"><b>D. </b>{{{this.d}}}</div>
+					{{/if}}
+					{{#if this.e}}
+						<div>{{{this.e}}}</div>
+					{{/if}}
+					<br />
+					{{#if this.answer}}
+						<div class="result">
+							<span class="result-header">Lời giải</span>
+							<div class="answer">
+								{{{this.answer}}}
+							</div>
+						</div>
+					{{else}}
+						<div class="result">
+							<span class="result-header">Lời giải</span>
+							<div class="key">
+								<b>Đáp án: </b>{{{this.key}}}
+							</div>
+						</div>
+					{{/if}}
+				</li>
+				<br />
+			{{/each}}
+		</ul>
+		{{! <script>
+			document.querySelector('h1').innerText = 'Danh sách câu hỏi';
+		</script> }}
+	</body>
+
+</html>

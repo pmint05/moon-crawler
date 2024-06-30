@@ -3,3 +3,5 @@ config.json
 *.py
 test
 test.js
+.vscode
+../.vscode
