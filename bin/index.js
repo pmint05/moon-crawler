@@ -493,6 +493,153 @@ const donwloadVideoInLesson = async (
 					}
 				}
 				return true;
+			} else if (keyAllEnglish && keyAllEnglish.length > 0) {
+				const testingUrl = `https://courseapi.moon.vn/api/Course/TestingEnglish/${lessonId}/1`;
+				const testingResponse = await axiosGetWithRetry(testingUrl, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+				if (!testingResponse.data) {
+					return false;
+				}
+				for (let i = 0; i < testingResponse.data.length; i++) {
+					const { id, isAudio, testingList, title, content } =
+						testingResponse.data[i];
+					if (isAudio) {
+						const audioUrl = `https://media.moon.vn/audio/englishtitle?id=${id}`;
+						console.log(`Downloading audio '${title}.mp3' ...`);
+						const audioOutputPath = path.join(
+							lessonPath,
+							`${validPath(title)}.mp3`
+						);
+						const audioOutput =
+							fs.createWriteStream(audioOutputPath);
+						const audioResponse = await axios({
+							url: audioUrl,
+							method: "GET",
+							responseType: "stream",
+						});
+						if (!audioResponse) {
+							return false;
+						}
+						audioResponse.data.pipe(audioOutput);
+						console.log(`Downloaded audio '${title}.mp3'`);
+						if (testingList.length > 0) {
+							await downloadPDF(
+								"Full",
+								{
+									data: testingList,
+									title,
+									content,
+								},
+								lessonPath
+							);
+						}
+					} else {
+						await downloadPDF(
+							"Full",
+							{
+								data: testingList,
+								title,
+								content,
+							},
+							lessonPath
+						);
+						for (let i = 0; i < testingList.length; i++) {
+							const { questionId, order } = testingList[i];
+							const detail = await axiosGetWithRetry(
+								`https://courseapi.moon.vn/api/Course/ItemQuestion/${questionId}`,
+								{
+									headers: {
+										Authorization: `Bearer ${token}`,
+									},
+								}
+							);
+							if (!detail.data) {
+								return false;
+							}
+							if (!detail.data.listTikTokVideoModel[0]) {
+								console.log(
+									`Question ${order} doesn't have solution video`
+								);
+								continue;
+							}
+							let videoUrl = await getSubPlaylistUrl(
+								detail.data.listTikTokVideoModel[0].urlVideo,
+								stream_num
+							);
+							if (!videoUrl) {
+								console.log(
+									`Video '${i + 1}.mp4' doesn't have ${
+										Resolution[stream_num]
+									} quality`
+								);
+								for (let i = 0; i < 3; i++) {
+									console.log(
+										`Retry download video ${i + 1}.mp4 in ${
+											Resolution[`stream_${i}`]
+										}`
+									);
+									if (Number(stream_num.split("_")[1]) === i)
+										continue;
+									videoUrl = await getSubPlaylistUrl(
+										detail.data.listTikTokVideoModel[0]
+											.urlVideo,
+										`stream_${i}`
+									);
+									if (!videoUrl) {
+										console.log(
+											`Video '${
+												i + 1
+											}.mp4' doesn't have ${
+												Resolution[stream_num]
+											} quality`
+										);
+										continue;
+									}
+									const isSuccessC = await downloadVideo(
+										order,
+										lessonPath,
+										videoUrl,
+										moduleName,
+										detail
+									);
+									if (isSuccessC) {
+										console.log(
+											`Download video '${
+												i + 1
+											}.mp4' successfully!`
+										);
+										donwloadedVideo++;
+										console.log(
+											"TOTAL VIDEOS DOWNLOADED: ",
+											donwloadedVideo
+										);
+										break;
+									}
+								}
+							}
+							const isSuccessC = await downloadVideo(
+								order,
+								lessonPath,
+								videoUrl,
+								moduleName,
+								detail
+							);
+							if (isSuccessC) {
+								console.log(
+									`Download video '${order}.mp4' successfully!`
+								);
+								donwloadedVideo++;
+								console.log(
+									"TOTAL VIDEOS DOWNLOADED: ",
+									donwloadedVideo
+								);
+							}
+						}
+					}
+				}
 			} else {
 				const testingUrl = `https://courseapi.moon.vn/api/Course/Testing/${lessonId}/1`;
 				const testingResponse = await axiosGetWithRetry(testingUrl, {
@@ -500,10 +647,16 @@ const donwloadVideoInLesson = async (
 						Authorization: `Bearer ${token}`,
 					},
 				});
-				if (!testingResponse) {
+				if (!testingResponse.data) {
 					return false;
 				}
-				await downloadPDF("Full", testingResponse.data, lessonPath);
+				await downloadPDF(
+					"Full",
+					{
+						data: testingResponse.data,
+					},
+					lessonPath
+				);
 				for (video of testingResponse.data) {
 					const { order, questionId } = video;
 					const detail = await axiosGetWithRetry(
@@ -516,10 +669,6 @@ const donwloadVideoInLesson = async (
 					);
 					if (!detail) {
 						return false;
-					}
-					const questionPath = path.join(lessonPath, `Câu ${order}`);
-					if (!fs.existsSync(questionPath)) {
-						fs.mkdirSync(questionPath);
 					}
 					if (!detail.data.listTikTokVideoModel[0]) {
 						console.log(
@@ -555,7 +704,7 @@ const donwloadVideoInLesson = async (
 							}
 							const isSuccessC = await downloadVideo(
 								order,
-								questionPath,
+								lessonPath,
 								videoUrl,
 								moduleName,
 								detail
@@ -575,7 +724,7 @@ const donwloadVideoInLesson = async (
 					}
 					const isSuccessC = await downloadVideo(
 						order,
-						questionPath,
+						lessonPath,
 						videoUrl,
 						moduleName,
 						detail
