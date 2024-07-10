@@ -497,7 +497,11 @@ const donwloadVideoInLesson = async (
 					}
 				}
 				return true;
-			} else if (keyAllEnglish && keyAllEnglish.length > 0) {
+			} else if (
+				keyAllEnglish &&
+				keyAllEnglish.length > 0 &&
+				subModuleName == "English"
+			) {
 				const testingUrl = `https://courseapi.moon.vn/api/Course/TestingEnglish/${lessonId}/1`;
 				const testingResponse = await axiosGetWithRetry(testingUrl, {
 					headers: {
@@ -911,6 +915,7 @@ async function downloadPDF(name, data, savePath) {
 	const html = Handlebars.compile(htmlTemplate)({
 		data,
 	});
+	// fs.writeFileSync("final.html", html);
 	console.log("Saving PDF...");
 	// console.log(html);
 	// fs.writeFileSync("final.html", html);
@@ -923,9 +928,26 @@ async function downloadPDF(name, data, savePath) {
 	await page.setContent(html, { waitUntil: "networkidle0" });
 
 	// Run any necessary JavaScript here
-	// await page.evaluate(() => {
-	//   // Your JS code here
-	// });
+	await page.evaluate(() => {
+		// const images = document.querySelectorAll("img");
+		// // refetch src and save as base64 then replace src
+		// images.forEach((img) => {
+		// 	const src = img.getAttribute("src");
+		// 	fetch(src, {
+		// 		mode: "no-cors",
+		// 	}).then((response) => {
+		// 		response.blob().then((blob) => {
+		// 			const reader = new FileReader();
+		// 			reader.readAsDataURL(blob);
+		// 			reader.onloadend = function () {
+		// 				const base64data = reader.result;
+		// 				console.log("base64data", base64data);
+		// 				img.setAttribute("src", base64data);
+		// 			};
+		// 		});
+		// 	});
+		// });
+	});
 
 	// Generate PDF
 	await page
