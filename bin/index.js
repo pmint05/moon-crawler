@@ -229,9 +229,13 @@ const getCourseDetail = async (courseUrl, token) => {
 	}
 };
 
-const getLessonInGroup = async (groupId) => {
+const getLessonInGroup = async (groupId, token) => {
 	const lessonInGroupUrl = `${LESSON_IN_GROUP_API}${groupId}`;
-	const response = await axiosGetWithRetry(lessonInGroupUrl);
+	const response = await axiosGetWithRetry(lessonInGroupUrl, {
+		headers: {
+			Authorization: `Bearer ${token}`,
+		},
+	});
 	if (!response) {
 		return [];
 	}
@@ -798,7 +802,7 @@ const main = async () => {
 			fs.mkdirSync(path.join(coursePath, validPath(name)));
 		}
 		const groupPath = path.join(coursePath, validPath(name));
-		const lessons = await getLessonInGroup(id);
+		const lessons = await getLessonInGroup(id, token);
 		for (let j = 0; j < lessons.length; j++) {
 			const lesson = lessons[j];
 			if (!lesson) {
@@ -858,7 +862,7 @@ const downloadChapter = async (chapter, groupList, coursePath, token) => {
 		fs.mkdirSync(path.join(coursePath, validPath(name)));
 	}
 	const groupPath = path.join(coursePath, validPath(name));
-	const lessons = await getLessonInGroup(id);
+	const lessons = await getLessonInGroup(id, token);
 	const { lesson: lessonToDown } = config;
 	let low = 0;
 	let high = lessons.length;
@@ -951,7 +955,7 @@ const countVideoInCourse = async (courseDetail, token) => {
 	const { groupList } = courseDetail;
 	for (let i = 0; i < groupList.length; i++) {
 		const group = groupList[i];
-		const lessons = await getLessonInGroup(group.id);
+		const lessons = await getLessonInGroup(group.id, token);
 		for (let j = 0; j < lessons.length; j++) {
 			const lesson = lessons[j];
 			const { id: lessonId, moduleName } = lesson;
