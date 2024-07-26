@@ -5,3 +5,4 @@ test
 test.js
 .vscode
 ../.vscode
+../config.json

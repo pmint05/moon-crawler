@@ -268,8 +268,8 @@ const donwloadVideoInLesson = async (
 	token,
 	lessonPath
 ) => {
-	switch (moduleName) {
-		case "ConfirmVideo":
+	switch (moduleName.toLowerCase()) {
+		case "confirmvideo":
 			const playlistUrl = `${CONFIRMVIDEO_API}${lessonId}`;
 			const response = await axiosGetWithRetry(playlistUrl, {
 				headers: {
@@ -349,7 +349,7 @@ const donwloadVideoInLesson = async (
 				}
 			}
 			return true;
-		case "Confirm":
+		case "confirm":
 			const lessonDetail = await axiosGetWithRetry(
 				`${LESSON_DETAIL_API}${lessonId}`,
 				{
