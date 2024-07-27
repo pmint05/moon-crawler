@@ -852,7 +852,8 @@ const validPath = (name) => {
 		.replace(/:/g, "")
 		.replace(/\//g, "")
 		.replace(/[\\?%*|"<>]/g, "-")
-		.replace(/\.$/, "");
+		.replace(/\.$/, "")
+		.trim();
 };
 const downloadChapter = async (chapter, groupList, coursePath, token) => {
 	const group = groupList[Number(chapter) - 1];
