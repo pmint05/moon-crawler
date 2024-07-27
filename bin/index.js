@@ -22,6 +22,11 @@ const Resolution = {
 	stream_1: "720",
 	stream_2: "480",
 };
+const ResolutionWidth = {
+	stream_0: "1920",
+	stream_1: "1280",
+	stream_2: "858",
+};
 let stream_num = "";
 const { resolution } = config;
 switch (resolution) {
@@ -258,7 +263,7 @@ const login = async () => {
 		console.log(`Logged in with user: ${username}`);
 		return token;
 	} catch (error) {
-		console.error("Error logging in: ", error.response.data);
+		console.error("Error logging in: ", error.message);
 		process.exit(1);
 	}
 };
@@ -750,6 +755,27 @@ const donwloadVideoInLesson = async (
 				}
 				return true;
 			}
+		case "livestream":
+			const liveStreamDetail = await axiosGetWithRetry(
+				`${LESSON_DETAIL_API}${lessonId}`,
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				}
+			);
+			if (!liveStreamDetail) {
+				return false;
+			}
+			const { linkLiveStream } = liveStreamDetail.data;
+			if (!linkLiveStream) {
+				console.log("Lesson doesn't have live stream");
+				return false;
+			}
+			const liveStreamLinkTxt = path.join(lessonPath, "link.txt");
+			fs.writeFileSync(liveStreamLinkTxt, linkLiveStream);
+			console.log("Saved live stream link");
+			return true;
 		default:
 			return false;
 	}
@@ -1040,6 +1066,27 @@ async function getSubPlaylistUrl(mainPlaylistUrl, streamNum) {
 		}
 	}
 
+	if (!subPlaylistUrl) {
+		for (let i = 0; i < lines.length; i++) {
+			if (
+				!lines[i].startsWith("#") &&
+				lines[i].endsWith(".m3u8") &&
+				(lines[i - 1].includes(Resolution.stream_2) ||
+					lines[i - 1].includes(ResolutionWidth.stream_2))
+			) {
+				subPlaylistUrl = new URL(lines[i], mainPlaylistUrl).href;
+				break;
+			}
+		}
+	}
+	if (!subPlaylistUrl) {
+		for (let i = 0; i < lines.length; i++) {
+			if (!lines[i].startsWith("#") && lines[i].endsWith(".m3u8")) {
+				subPlaylistUrl = new URL(lines[i], mainPlaylistUrl).href;
+				break;
+			}
+		}
+	}
 	return subPlaylistUrl;
 }
 
