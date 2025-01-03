@@ -71,9 +71,7 @@ async function axiosGetWithRetry(
 			// Optionally increase delay for 503 errors
 			const delay = isServiceUnavailable ? retryDelay * 2 : retryDelay;
 			console.log(
-				`Attempt ${
-					attempt + 1
-				}: Service unavailable, retrying in ${delay}ms...`
+				`Attempt ${attempt + 1}: Service unavailable, retrying in ${delay}ms...`
 			);
 			await new Promise((resolve) => setTimeout(resolve, delay));
 		}
@@ -187,9 +185,7 @@ const downloadVideo = async (fileName, targetPath, playlistUrl) => {
 							process.stdout.cursorTo(0);
 							process.stdout.write(
 								`Downloaded ${Number(
-									(downloadedSegments /
-										arrayOfSegments.length) *
-										100
+									(downloadedSegments / arrayOfSegments.length) * 100
 								).toFixed(2)}%`
 							);
 							resolve();
@@ -260,7 +256,11 @@ const login = async () => {
 			process.exit(1);
 		}
 		const { token } = response.data;
-		console.log(`Logged in with user: ${username}`);
+		console.log(
+			`Logged in with user: ${username.slice(0, 5)}${Array(username.length - 5)
+				.fill("*")
+				.join("")}`
+		);
 		return token;
 	} catch (error) {
 		console.error("Error logging in: ", error.message);
@@ -295,25 +295,17 @@ const donwloadVideoInLesson = async (
 					console.log(`Video '${fileName}' doesn't have video url`);
 					continue;
 				}
-				let playlistDataUrl = await getSubPlaylistUrl(
-					urlVideo,
-					stream_num
-				);
+				let playlistDataUrl = await getSubPlaylistUrl(urlVideo, stream_num);
 				if (!playlistDataUrl) {
 					console.log(
 						`Video '${fileName}' doesn't have ${Resolution[stream_num]} quality`
 					);
 					for (let i = 0; i < 3; i++) {
 						console.log(
-							`Retry download video ${fileName} in ${
-								Resolution[`stream_${i}`]
-							}`
+							`Retry download video ${fileName} in ${Resolution[`stream_${i}`]}`
 						);
 						if (Number(stream_num.split("_")[1]) === i) continue;
-						playlistDataUrl = await getSubPlaylistUrl(
-							urlVideo,
-							`stream_${i}`
-						);
+						playlistDataUrl = await getSubPlaylistUrl(urlVideo, `stream_${i}`);
 						if (!playlistDataUrl) {
 							console.log(
 								`Video '${fileName}' doesn't have ${Resolution[stream_num]} quality`
@@ -326,14 +318,9 @@ const donwloadVideoInLesson = async (
 							playlistDataUrl
 						);
 						if (isSuccessCV) {
-							console.log(
-								`Download video '${fileName}.mp4' successfully!`
-							);
+							console.log(`Download video '${fileName}.mp4' successfully!`);
 							donwloadedVideo++;
-							console.log(
-								"TOTAL VIDEOS DOWNLOADED: ",
-								donwloadedVideo
-							);
+							console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 							break;
 						}
 					}
@@ -344,9 +331,7 @@ const donwloadVideoInLesson = async (
 					playlistDataUrl
 				);
 				if (isSuccessCV) {
-					console.log(
-						`Download video '${fileName}.mp4' successfully!`
-					);
+					console.log(`Download video '${fileName}.mp4' successfully!`);
 					donwloadedVideo++;
 					console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 				} else {
@@ -364,8 +349,10 @@ const donwloadVideoInLesson = async (
 				}
 			);
 			if (!lessonDetail) {
+				console.error("Failed to fetch lesson detail");
 				return false;
 			}
+			// console.log("Lesson detail:", lessonDetail.data);
 			const { subModuleName, keyAllEnglish } = lessonDetail.data;
 			if (subModuleName === "audio" && keyAllEnglish !== null) {
 				const testingUrl = `https://courseapi.moon.vn/api/Course/TestingEnglish/${lessonId}/1`;
@@ -381,10 +368,7 @@ const donwloadVideoInLesson = async (
 					const { id, isAudio, title } = testingResponse.data[i];
 					if (isAudio) {
 						const audioUrl = `https://media.moon.vn/audio/englishtitle?id=${id}`;
-						const audioPath = path.join(
-							lessonPath,
-							validPath(title)
-						);
+						const audioPath = path.join(lessonPath, validPath(title));
 						if (!fs.existsSync(audioPath)) {
 							fs.mkdirSync(audioPath);
 						}
@@ -393,8 +377,7 @@ const donwloadVideoInLesson = async (
 							audioPath,
 							`${validPath(title)}.mp3`
 						);
-						const audioOutput =
-							fs.createWriteStream(audioOutputPath);
+						const audioOutput = fs.createWriteStream(audioOutputPath);
 						const audioResponse = await axios({
 							url: audioUrl,
 							method: "GET",
@@ -416,17 +399,12 @@ const donwloadVideoInLesson = async (
 						if (!detail) {
 							return false;
 						}
-						const questionPath = path.join(
-							lessonPath,
-							`Câu ${i + 1}`
-						);
+						const questionPath = path.join(lessonPath, `Câu ${i + 1}`);
 						if (!fs.existsSync(questionPath)) {
 							fs.mkdirSync(questionPath);
 						}
 						if (!detail.data.listTikTokVideoModel[0]) {
-							console.log(
-								`Question ${i + 1} doesn't have solution video`
-							);
+							console.log(`Question ${i + 1} doesn't have solution video`);
 							continue;
 						}
 						let videoUrl = await getSubPlaylistUrl(
@@ -445,11 +423,9 @@ const donwloadVideoInLesson = async (
 										Resolution[`stream_${i}`]
 									}`
 								);
-								if (Number(stream_num.split("_")[1]) === i)
-									continue;
+								if (Number(stream_num.split("_")[1]) === i) continue;
 								videoUrl = await getSubPlaylistUrl(
-									detail.data.listTikTokVideoModel[0]
-										.urlVideo,
+									detail.data.listTikTokVideoModel[0].urlVideo,
 									`stream_${i}`
 								);
 								if (!videoUrl) {
@@ -468,16 +444,9 @@ const donwloadVideoInLesson = async (
 									detail
 								);
 								if (isSuccessC) {
-									console.log(
-										`Download video '${
-											i + 1
-										}.mp4' successfully!`
-									);
+									console.log(`Download video '${i + 1}.mp4' successfully!`);
 									donwloadedVideo++;
-									console.log(
-										"TOTAL VIDEOS DOWNLOADED: ",
-										donwloadedVideo
-									);
+									console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 									break;
 								}
 							}
@@ -490,14 +459,9 @@ const donwloadVideoInLesson = async (
 							detail
 						);
 						if (isSuccessC) {
-							console.log(
-								`Download video '${i + 1}.mp4' successfully!`
-							);
+							console.log(`Download video '${i + 1}.mp4' successfully!`);
 							donwloadedVideo++;
-							console.log(
-								"TOTAL VIDEOS DOWNLOADED: ",
-								donwloadedVideo
-							);
+							console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 						}
 					}
 				}
@@ -526,8 +490,7 @@ const donwloadVideoInLesson = async (
 							lessonPath,
 							`${validPath(title)}.mp3`
 						);
-						const audioOutput =
-							fs.createWriteStream(audioOutputPath);
+						const audioOutput = fs.createWriteStream(audioOutputPath);
 						const audioResponse = await axios({
 							url: audioUrl,
 							method: "GET",
@@ -573,9 +536,7 @@ const donwloadVideoInLesson = async (
 								return false;
 							}
 							if (!detail.data.listTikTokVideoModel[0]) {
-								console.log(
-									`Question ${order} doesn't have solution video`
-								);
+								console.log(`Question ${order} doesn't have solution video`);
 								continue;
 							}
 							let videoUrl = await getSubPlaylistUrl(
@@ -594,18 +555,14 @@ const donwloadVideoInLesson = async (
 											Resolution[`stream_${i}`]
 										}`
 									);
-									if (Number(stream_num.split("_")[1]) === i)
-										continue;
+									if (Number(stream_num.split("_")[1]) === i) continue;
 									videoUrl = await getSubPlaylistUrl(
-										detail.data.listTikTokVideoModel[0]
-											.urlVideo,
+										detail.data.listTikTokVideoModel[0].urlVideo,
 										`stream_${i}`
 									);
 									if (!videoUrl) {
 										console.log(
-											`Video '${
-												i + 1
-											}.mp4' doesn't have ${
+											`Video '${i + 1}.mp4' doesn't have ${
 												Resolution[stream_num]
 											} quality`
 										);
@@ -619,16 +576,9 @@ const donwloadVideoInLesson = async (
 										detail
 									);
 									if (isSuccessC) {
-										console.log(
-											`Download video '${
-												i + 1
-											}.mp4' successfully!`
-										);
+										console.log(`Download video '${i + 1}.mp4' successfully!`);
 										donwloadedVideo++;
-										console.log(
-											"TOTAL VIDEOS DOWNLOADED: ",
-											donwloadedVideo
-										);
+										console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 										break;
 									}
 								}
@@ -641,14 +591,9 @@ const donwloadVideoInLesson = async (
 								detail
 							);
 							if (isSuccessC) {
-								console.log(
-									`Download video '${order}.mp4' successfully!`
-								);
+								console.log(`Download video '${order}.mp4' successfully!`);
 								donwloadedVideo++;
-								console.log(
-									"TOTAL VIDEOS DOWNLOADED: ",
-									donwloadedVideo
-								);
+								console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 							}
 						}
 					}
@@ -684,9 +629,7 @@ const donwloadVideoInLesson = async (
 						return false;
 					}
 					if (!detail.data.listTikTokVideoModel[0]) {
-						console.log(
-							`Question ${order} doesn't have solution video`
-						);
+						console.log(`Question ${order} doesn't have solution video`);
 						continue;
 					}
 					let videoUrl = await getSubPlaylistUrl(
@@ -703,8 +646,7 @@ const donwloadVideoInLesson = async (
 									Resolution[`stream_${i}`]
 								}`
 							);
-							if (Number(stream_num.split("_")[1]) === i)
-								continue;
+							if (Number(stream_num.split("_")[1]) === i) continue;
 							videoUrl = await getSubPlaylistUrl(
 								detail.data.listTikTokVideoModel[0].urlVideo,
 								`stream_${i}`
@@ -723,14 +665,9 @@ const donwloadVideoInLesson = async (
 								detail
 							);
 							if (isSuccessC) {
-								console.log(
-									`Download video '${order}.mp4' successfully!`
-								);
+								console.log(`Download video '${order}.mp4' successfully!`);
 								donwloadedVideo++;
-								console.log(
-									"TOTAL VIDEOS DOWNLOADED: ",
-									donwloadedVideo
-								);
+								console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 								break;
 							}
 						}
@@ -743,14 +680,9 @@ const donwloadVideoInLesson = async (
 						detail
 					);
 					if (isSuccessC) {
-						console.log(
-							`Download video '${order}.mp4' successfully!`
-						);
+						console.log(`Download video '${order}.mp4' successfully!`);
 						donwloadedVideo++;
-						console.log(
-							"TOTAL VIDEOS DOWNLOADED: ",
-							donwloadedVideo
-						);
+						console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 					}
 				}
 				return true;
@@ -803,19 +735,11 @@ const main = async () => {
 		fs.mkdirSync(path.join(__dirname, "../download"));
 	}
 	if (
-		!fs.existsSync(
-			path.join(__dirname, "../download", validPath(courseName))
-		)
+		!fs.existsSync(path.join(__dirname, "../download", validPath(courseName)))
 	) {
-		fs.mkdirSync(
-			path.join(__dirname, "../download", validPath(courseName))
-		);
+		fs.mkdirSync(path.join(__dirname, "../download", validPath(courseName)));
 	}
-	const coursePath = path.join(
-		__dirname,
-		"../download",
-		validPath(courseName)
-	);
+	const coursePath = path.join(__dirname, "../download", validPath(courseName));
 	// console.log("Calculating total video in course...");
 	// const totalVideo = await countVideoInCourse(courseDetail, token);
 	// console.log("Total video in course: ", totalVideo);
@@ -912,13 +836,9 @@ const downloadChapter = async (chapter, groupList, coursePath, token) => {
 		const { id: lessonId, name: lessonName, moduleName } = lesson;
 		console.log("Downloading lesson: ", lessonName);
 		if (
-			!fs.existsSync(
-				path.join(groupPath, validPath(`${j + 1}. ${lessonName}`))
-			)
+			!fs.existsSync(path.join(groupPath, validPath(`${j + 1}. ${lessonName}`)))
 		) {
-			fs.mkdirSync(
-				path.join(groupPath, validPath(`${j + 1}. ${lessonName}`))
-			);
+			fs.mkdirSync(path.join(groupPath, validPath(`${j + 1}. ${lessonName}`)));
 		}
 		const lessonPath = path.join(
 			groupPath,
@@ -1020,14 +940,11 @@ const countVideoInCourse = async (courseDetail, token) => {
 					break;
 				case "Confirm":
 					const testingUrl = `https://courseapi.moon.vn/api/Course/Testing/${lessonId}/1`;
-					const testingResponse = await axiosGetWithRetry(
-						testingUrl,
-						{
-							headers: {
-								Authorization: `Bearer ${token}`,
-							},
-						}
-					);
+					const testingResponse = await axiosGetWithRetry(testingUrl, {
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					});
 					count += testingResponse.data.length;
 					break;
 				default:
