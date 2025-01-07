@@ -17,6 +17,8 @@ const LESSON_IN_GROUP_API =
 const CONFIRMVIDEO_API =
 	"https://courseapi.moon.vn/api/course/VideoLessonTikTok/";
 const LESSON_DETAIL_API = "https://courseapi.moon.vn/api/Course/LessonDetail/";
+const TEST_DETAIL_API =
+	"https://courseapi.moon.vn/api/testing/ReadingInLesson/";
 const Resolution = {
 	stream_0: "1080",
 	stream_1: "720",
@@ -339,6 +341,25 @@ const donwloadVideoInLesson = async (
 				}
 			}
 			return true;
+		case "stest-key":
+		case "stest":
+			const testingUrl = `${TEST_DETAIL_API}${lessonId}`;
+			const testingResponse = await axiosGetWithRetry(testingUrl, {
+				headers: {
+					Authorization: `Bearer ${token}`,
+				},
+			});
+			if (!testingResponse) {
+				return false;
+			}
+			const { data } = testingResponse;
+			if (data.length === 0) {
+				console.log("Lesson is empty");
+				return false;
+			}
+			// savePdf(browser, data, `${lessonPath}/test.pdf`);
+			await download2025Test(data, lessonPath);
+			break;
 		case "confirm":
 			const lessonDetail = await axiosGetWithRetry(
 				`${LESSON_DETAIL_API}${lessonId}`,
@@ -469,7 +490,7 @@ const donwloadVideoInLesson = async (
 			} else if (
 				keyAllEnglish &&
 				keyAllEnglish.length > 0 &&
-				subModuleName == "English"
+				subModuleName.toLowerCase() == "english"
 			) {
 				const testingUrl = `https://courseapi.moon.vn/api/Course/TestingEnglish/${lessonId}/1`;
 				const testingResponse = await axiosGetWithRetry(testingUrl, {
@@ -480,6 +501,8 @@ const donwloadVideoInLesson = async (
 				if (!testingResponse.data) {
 					return false;
 				}
+				console.log(testingResponse.data);
+
 				for (let i = 0; i < testingResponse.data.length; i++) {
 					const { id, isAudio, testingList, title, content } =
 						testingResponse.data[i];
@@ -522,6 +545,7 @@ const donwloadVideoInLesson = async (
 							},
 							lessonPath
 						);
+						if (moduleName.toLowerCase() === "stest-key") return;
 						for (let i = 0; i < testingList.length; i++) {
 							const { questionId, order } = testingList[i];
 							const detail = await axiosGetWithRetry(
@@ -685,6 +709,18 @@ const donwloadVideoInLesson = async (
 						console.log("TOTAL VIDEOS DOWNLOADED: ", donwloadedVideo);
 					}
 				}
+				return true;
+				const readingUrl = `https://courseapi.moon.vn/api/testing/ReadingInLesson/19731699`;
+				const readingResponse = await axiosGetWithRetry(readingUrl, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+				if (!readingResponse) {
+					console.error("Failed to fetch reading data");
+					return false;
+				}
+				await downloadPDF("ReadingInLesson", readingResponse.data, lessonPath);
 				return true;
 			}
 		case "livestream":
@@ -917,6 +953,46 @@ async function downloadPDF(name, data, savePath) {
 		});
 
 	await browser.close();
+}
+
+let browser;
+const testHtmlTemplate = fs.readFileSync(
+	path.join(__dirname, "./template/test_pdf_template.hbs"),
+	"utf8"
+);
+async function download2025Test(data, savePath) {
+	const html = Handlebars.compile(testHtmlTemplate)({
+		data,
+	});
+	console.log("Saving Test PDF...");
+	if (!browser) {
+		browser = await puppeteer.launch({
+			headless: true,
+			args: ["--no-sandbox", "--disable-setuid-sandbox"],
+		});
+	}
+	const page = await browser.newPage();
+
+	await page.setContent(html, { waitUntil: "networkidle0" });
+
+	await page
+		.pdf({
+			path: path.join(savePath, "Test.pdf"),
+			format: "A4",
+			margin: {
+				top: "20px",
+				right: "20px",
+				bottom: "20px",
+				left: "20px",
+			},
+			printBackground: true,
+		})
+		.then(() => {
+			console.log("Saved Test PDF successfully!");
+		})
+		.catch((error) => {
+			console.error("Error saving Test PDF: ", error);
+		});
 }
 
 const countVideoInCourse = async (courseDetail, token) => {
