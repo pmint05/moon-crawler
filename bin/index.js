@@ -19,6 +19,10 @@ const CONFIRMVIDEO_API =
 const LESSON_DETAIL_API = "https://courseapi.moon.vn/api/Course/LessonDetail/";
 const TEST_DETAIL_API =
 	"https://courseapi.moon.vn/api/testing/ReadingInLesson/";
+const MTEST_KEY_DETAIL_API =
+	"https://courseapi.moon.vn/api/Course/LessonDetail/mtest-key-detail/";
+const MTEST_KEY_SECTION_API =
+	"https://courseapi.moon.vn/api/testing/QuestionInMTest/";
 const Resolution = {
 	stream_0: "1080",
 	stream_1: "720",
@@ -78,59 +82,6 @@ async function axiosGetWithRetry(
 			await new Promise((resolve) => setTimeout(resolve, delay));
 		}
 	}
-}
-
-function generateHtmlForImage(item, isAnswer = false) {
-	let body = "";
-	if (!isAnswer) {
-		if (item.questionText) {
-			body += `<h3><b>${item.order}.</b> ${item.questionText}</h3>`;
-		}
-		if (item.a) {
-			body += `<div class="answer"><b>A.</b> ${item.a}</div>`;
-		}
-		if (item.b) {
-			body += `<div class="answer"><b>B.</b> ${item.b}</div>`;
-		}
-		if (item.c) {
-			body += `<div class="answer"><b>C.</b> ${item.c}</div>`;
-		}
-		if (item.d) {
-			body += `<div class="answer"><b>D.</b> ${item.d}</div>`;
-		}
-		if (item.e) {
-			body += `<div class="answer"><b>E.</b> ${item.e}</div>`;
-		}
-	} else {
-		if (item.answer) {
-			body += `<div class="answer"><b>${item.order}. </b>${item.answer}</div>`;
-		} else {
-			body += `<div class="answer">Đáp án: <b>${item.key}</b></div>`;
-		}
-	}
-	return `<html>
-                <head>
-                    <style>
-                        body {
-                            margin: 0;
-                            padding: 20px;
-                            width: auto;
-                            height: auto;
-                            display: inline-block;
-                            font-size: 16px;
-                        }
-                        img {
-                            height: auto;
-                            display: inline-block;
-                            vertical-align: middle;
-                            margin: 0 5px;
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${body}
-                </body>
-            </html>`;
 }
 
 let donwloadedVideo = 0;
@@ -358,7 +309,41 @@ const donwloadVideoInLesson = async (
 				return false;
 			}
 			// savePdf(browser, data, `${lessonPath}/test.pdf`);
-			await download2025Test(data, lessonPath);
+			await download2025Test(data, lessonPath, "test");
+			break;
+		case "mtest-key":
+			const mtestKeyDetail = await axiosGetWithRetry(
+				MTEST_KEY_DETAIL_API + lessonId,
+				{
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				}
+			);
+			// console.log(mtestKeyDetail);
+			if (!mtestKeyDetail) {
+				console.error("Failed to fetch mtest key detail");
+				return false;
+			}
+			const { data: mtestKeyData } = mtestKeyDetail;
+			const { sections } = mtestKeyData;
+			for (const section of sections) {
+				const { name, lessonId } = section;
+				const mtestKeySection = await axiosGetWithRetry(
+					`${MTEST_KEY_SECTION_API}${lessonId}`,
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
+					}
+				);
+				if (!mtestKeySection) {
+					console.error("Failed to fetch mtest key section");
+					continue;
+				}
+				const { data: mtestKeySectionData } = mtestKeySection;
+				await download2025Test(mtestKeySectionData, lessonPath, name);
+			}
 			break;
 		case "confirm":
 			const lessonDetail = await axiosGetWithRetry(
@@ -501,7 +486,7 @@ const donwloadVideoInLesson = async (
 				if (!testingResponse.data) {
 					return false;
 				}
-				console.log(testingResponse.data);
+				// console.log(testingResponse.data);
 
 				for (let i = 0; i < testingResponse.data.length; i++) {
 					const { id, isAudio, testingList, title, content } =
@@ -960,7 +945,7 @@ const testHtmlTemplate = fs.readFileSync(
 	path.join(__dirname, "./template/test_pdf_template.hbs"),
 	"utf8"
 );
-async function download2025Test(data, savePath) {
+async function download2025Test(data, savePath, fileName = "test") {
 	const html = Handlebars.compile(testHtmlTemplate)({
 		data,
 	});
@@ -977,7 +962,7 @@ async function download2025Test(data, savePath) {
 
 	await page
 		.pdf({
-			path: path.join(savePath, "Test.pdf"),
+			path: path.join(savePath, `${validPath(fileName)}.pdf`),
 			format: "A4",
 			margin: {
 				top: "20px",
@@ -988,10 +973,10 @@ async function download2025Test(data, savePath) {
 			printBackground: true,
 		})
 		.then(() => {
-			console.log("Saved Test PDF successfully!");
+			console.log(`Saved ${fileName} PDF successfully!`);
 		})
 		.catch((error) => {
-			console.error("Error saving Test PDF: ", error);
+			console.error(`Error saving ${fileName} PDF: `, error);
 		});
 }
 
