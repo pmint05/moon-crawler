@@ -403,7 +403,8 @@ const donwloadVideoInLesson = async (
 							}
 						);
 						if (!detail) {
-							return false;
+							console.error(`Failed to fetch question detail: ${id}`);
+							continue;
 						}
 						const questionPath = path.join(lessonPath, `Câu ${i + 1}`);
 						if (!fs.existsSync(questionPath)) {
@@ -541,8 +542,10 @@ const donwloadVideoInLesson = async (
 									},
 								}
 							);
-							if (!detail.data) {
-								return false;
+
+							if (!detail || !detail.data) {
+								console.error(`Failed to fetch question detail: ${questionId}`);
+								continue;
 							}
 							if (!detail.data.listTikTokVideoModel[0]) {
 								console.log(`Question ${order} doesn't have solution video`);
@@ -820,10 +823,12 @@ const main = async () => {
 const validPath = (name) => {
 	return name
 		.toString()
+		.replace(/\t/g, "")
 		.replace(/:/g, "")
 		.replace(/\//g, "")
 		.replace(/[\\?%*|"<>]/g, "-")
 		.replace(/\.$/, "")
+		.replace(/\s+/g, " ")
 		.trim();
 };
 const downloadChapter = async (chapter, groupList, coursePath, token) => {
